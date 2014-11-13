@@ -1,0 +1,235 @@
+<!doctype html>
+<html>
+<head>
+	<title>GControls test</title>
+    <script src="js/gl-matrix-min.js"></script>
+	<script src="js/Camera.js"></script>
+	<script src="js/GControls.js"></script>
+    <script src="js/ShaderProgram.js"></script>
+	<script></script>
+	<script>
+        var gl,
+            canvas,
+            camera,
+            shaderProgram,
+            controls,
+            vertexData,
+            indexData,
+            colorData;
+
+		function init(){
+		    canvas = document.getElementById('can');
+		    try {
+		        gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+		    } catch (e) {
+		    }
+		    if (!gl) {
+		        alert("Unfortunately, your browser does not support WebGL.");
+		        return;
+		    }
+
+		    camera = new Camera(45, this.canvas.width / this.canvas.height, 1, 100.0, vec3.create([0, 0, -10]));
+		    shaderProgram = new ShaderProgram("Colors");
+		    controls = new GControls(canvas, camera);
+
+		    vertexData = [
+                -1.0, -1.0, -1.0,
+                1.0, -1.0, -1.0,
+                1.0, 1.0, -1.0,
+                -1.0, 1.0, -1.0,
+
+                -1.0, -1.0, 1.0,
+                1.0, -1.0, 1.0,
+                1.0, 1.0, 1.0,
+                -1.0, 1.0, 1.0
+		    ];
+
+		    indexData = [
+                2, 1, 0, 0, 3, 2,
+                4, 5, 6, 6, 7, 4,
+                1, 2, 6, 6, 5, 1,
+                0, 4, 7, 7, 3, 0,
+                3, 7, 6, 6, 2, 3,
+                1, 5, 4, 4, 0, 1
+		    ];
+
+		    colorData = [
+                0.0, 0.0, 1.0,
+                0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                1.0, 0.0, 0.0,
+                1.0, 0.0, 1.0,
+                1.0, 1.0, 0.0,
+                0.0, 1.0, 1.0,
+                1.0, 1.0, 1.0
+		    ];
+
+		    gl.useProgram(this.shaderProgramColors);
+		    gl.bindBuffer(gl.ARRAY_BUFFER, shaderProgram.buffers.vertex);
+		    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexData), gl.DYNAMIC_DRAW);
+
+		    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, shaderProgram.buffers.index);
+		    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexData), gl.DYNAMIC_DRAW);
+		    shaderProgram.buffers.index.arrayLength = indexData.length;
+
+		    gl.bindBuffer(gl.ARRAY_BUFFER, shaderProgram.buffers.color);
+		    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colorData), gl.DYNAMIC_DRAW);
+
+		    
+
+		    //disable context menu
+		    canvas.addEventListener('contextmenu', function (event) { event.preventDefault(); }, false);
+
+		    //mouse events
+		    canvas.addEventListener('mousedown', mouseDown, false);
+		    canvas.addEventListener('mousewheel', mouseWheel, false);
+		    canvas.addEventListener('DOMMouseScroll', mouseWheel, false); // firefox
+
+		    //keyboard events
+		    document.addEventListener("keydown", keyDown, false);
+
+		    animate();
+		}
+	
+		function animate() {
+		    requestAnimationFrame(animate, canvas);
+		    controls.update();
+		    clearScene();
+		    render();
+		}
+
+        function clearScene() {
+            gl.clearColor(0, 0, 0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.enable(gl.DEPTH_TEST);
+        }
+
+        function render(){
+            gl.viewport(0, 0, canvas.width, canvas.height);
+
+            //apply transformations
+            var transformationMatrix = mat4.create();
+            mat4.translate(this.camera.mvMatrix, controls.position, transformationMatrix);
+            mat4.rotate(transformationMatrix, this.controls.rotation[0], [1.0, 0.0, 0.0]);
+            mat4.rotate(transformationMatrix, this.controls.rotation[1], [0.0, 1.0, 0.0]);
+
+            gl.useProgram(shaderProgram);
+            //Set matrix uniforms
+            gl.uniformMatrix4fv(shaderProgram.uniforms.pMatrix, false, camera.pMatrix);
+            gl.uniformMatrix4fv(shaderProgram.uniforms.mvMatrix, false, transformationMatrix);
+
+            //Draw
+            gl.enableVertexAttribArray(shaderProgram.attributes.position);
+            gl.bindBuffer(gl.ARRAY_BUFFER, shaderProgram.buffers.vertex);
+            gl.vertexAttribPointer(shaderProgram.attributes.position, 3, gl.FLOAT, false, 0, 0);
+
+
+            gl.enableVertexAttribArray(shaderProgram.attributes.color);
+            gl.bindBuffer(gl.ARRAY_BUFFER, shaderProgram.buffers.color);
+            gl.vertexAttribPointer(shaderProgram.attributes.color, 3, gl.FLOAT, false, 0, 0);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, shaderProgram.buffers.index);
+
+            gl.polygonOffset(2.0, 2.0);
+            gl.enable(gl.POLYGON_OFFSET_FILL);
+            gl.drawElements(gl.TRIANGLES, shaderProgram.buffers.index.arrayLength, gl.UNSIGNED_SHORT, 0);
+            gl.disable(gl.POLYGON_OFFSET_FILL);
+            gl.flush();
+        }
+
+
+        function mouseDown(event) {
+            event.preventDefault();
+            var rect = canvas.getBoundingClientRect();
+            var coords = [event.clientX - rect.left, event.clientY - rect.top];
+
+            if (event.button === 0) {
+                controls.startRotate(coords);
+            }
+            else if (event.button === 2) {
+                controls.startPan(coords);
+            }
+
+            //add events to detect while mouse down
+            canvas.addEventListener('mousemove', mouseMove, false);
+            canvas.addEventListener('mouseup', mouseOut, false);
+            canvas.addEventListener('mouseout', mouseOut, false);
+        }
+
+        function mouseMove(event) {
+            event.preventDefault();
+            var rect = canvas.getBoundingClientRect();
+            var coords = [event.clientX - rect.left, event.clientY - rect.top];
+
+            if (event.button === 0) {
+                controls.doRotate(coords);
+            }
+            else if (event.button === 2) {
+                controls.doPan(coords);
+            }
+        }
+
+        function mouseOut() {
+            canvas.removeEventListener('mousemove', mouseMove, false);
+            canvas.removeEventListener('mouseup', mouseOut, false);
+            canvas.removeEventListener('mouseout', mouseOut, false);
+        }
+
+        function mouseWheel(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (event.wheelDelta !== undefined) { // WebKit / Opera / Explorer 9
+                controls.doZoom(event.wheelDelta);
+            } else if (event.detail !== undefined) { // Firefox
+                controls.doZoom(-event.detail);
+            }
+        }
+
+        function keyDown(e) {
+            switch (e.which) {
+                case 65: // left
+                    controls.startPan([0.0, 0.0]);
+                    controls.doPan([-5, 0]);
+                    break;
+                case 68: // right
+                    controls.startPan([0.0, 0.0]);
+                    controls.doPan([5, 0]);
+                    break;
+                case 87: // up
+                    controls.startPan([0.0, 0.0]);
+                    controls.doPan([0, -5]);
+                    break;
+                case 83: // down
+                    controls.startPan([0.0, 0.0]);
+                    controls.doPan([0, 5]);
+                    break;
+                default: return; // exit this handler for other keys
+            }
+            e.preventDefault();
+        }
+
+        window.onload = init;
+
+        function handleClick(ch) {
+            if (ch.checked) {
+                controls.rotationMomentum = 0.1;
+            } else {
+                controls.rotationMomentum = 1;
+            }
+        }
+	</script>
+</head>
+<body>
+	<canvas id="can" width="500" height="500">
+		Unfortunately, your browser does not support HTML5 canvas element and you cannot view this page properly.
+	</canvas><br/>
+    <input id="ch" type="checkbox" onclick='handleClick(this);' />Use rotation momentum
+    <h3>Controls:</h3>
+    Left click - hold and rotate <br/>
+    Right click - hold and move (W, A, S and D also move the model by 5px )<br/>
+    Scrool - zoom in/out<br/>
+    
+    
+</body>
+</html>
