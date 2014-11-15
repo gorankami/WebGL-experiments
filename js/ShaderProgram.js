@@ -14,18 +14,15 @@ ShaderProgram = function ShaderProgram(type) {
     var fragmentShader = null;
     switch (type) {
         case "Colors":
+            vertexShader = this.createShader(this.getVertexShaderColorsSource(), gl.VERTEX_SHADER);
+            fragmentShader = this.createShader(this.getFragmentShaderColorsSource(), gl.FRAGMENT_SHADER);
             break;
-        case "FEMWireframe":
+        case "Uniform":
+            vertexShader = this.createShader(this.getVertexShaderUniformSource(), gl.VERTEX_SHADER);
+            fragmentShader = this.createShader(this.getFragmentShaderUniformSource(), gl.FRAGMENT_SHADER);
             break;
         default:
             return null;
-    }
-    if (type == "Colors") {
-        vertexShader = this.createShader(this.getVertexShaderColorsSource(), gl.VERTEX_SHADER);
-        fragmentShader = this.createShader(this.getFragmentShaderColorsSource(), gl.FRAGMENT_SHADER);
-    } else if (type == "Colors") {
-        vertexShader = this.createShader(this.getVertexShaderUniformSource(), gl.VERTEX_SHADER);
-        fragmentShader = this.createShader(this.getFragmentShaderUniformSource(), gl.FRAGMENT_SHADER);
     }
     var program = gl.createProgram();
     gl.attachShader(program, vertexShader);
@@ -39,6 +36,7 @@ ShaderProgram = function ShaderProgram(type) {
     program.attributes = {
         position: gl.getAttribLocation(program, "aVertexPosition")
     };
+
     if (type == "Colors"){
         program.attributes.color = gl.getAttribLocation(program, "aVertexColor");
     }
@@ -52,6 +50,7 @@ ShaderProgram = function ShaderProgram(type) {
         vertex: gl.createBuffer(),
         index: gl.createBuffer()
     };
+
     if (type == "Colors") {
         program.buffers.color = gl.createBuffer();
     }
