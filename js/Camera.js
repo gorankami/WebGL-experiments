@@ -22,7 +22,7 @@ Camera = function (verFoV, aspect, nearPlane, farPlane, position) {
 
     mat4.perspective(verFoV, aspect, nearPlane, farPlane, this.pMatrix);
     mat4.identity(this.mvMatrix);
-    mat4.translate(this.mvMatrix, position);
+    mat4.translate(this.mvMatrix, this.mvMatrix, position);
 
     this.position = position;
 }
